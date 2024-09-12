@@ -129,8 +129,7 @@ async function submitUserMessage(content: string) {
   const result = await streamUI({
     model: openai('o1-preview'),
     initial: <SpinnerMessage />,
-    system: `\
-    You are a full-stack development expert`,
+    system: ``,
     messages: [
       ...aiState.get().messages.map((message: any) => ({
         role: message.role,
