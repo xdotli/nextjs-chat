@@ -127,7 +127,7 @@ async function submitUserMessage(content: string) {
   let textNode: undefined | React.ReactNode
 
   const result = await streamUI({
-    model: openai('gpt-4o	'),
+    model: openai('o1-preview'),
     initial: <SpinnerMessage />,
     system: `\
     You are a full-stack development expert`,
