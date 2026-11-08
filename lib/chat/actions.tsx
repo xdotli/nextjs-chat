@@ -7,8 +7,9 @@ import {
   getAIState,
   streamUI,
   createStreamableValue
-} from 'ai/rsc'
+} from '@ai-sdk/rsc'
 import { openai } from '@ai-sdk/openai'
+import type { JSONValue, ModelMessage } from 'ai'
 
 import {
   spinner,
@@ -127,16 +128,10 @@ async function submitUserMessage(content: string) {
   let textNode: undefined | React.ReactNode
 
   const result = await streamUI({
-    model: openai('o1-preview'),
+    model: openai.chat('o1-preview'),
     initial: <SpinnerMessage />,
     system: ``,
-    messages: [
-      ...aiState.get().messages.map((message: any) => ({
-        role: message.role,
-        content: message.content,
-        name: message.name
-      }))
-    ],
+    messages: toModelMessages(aiState.get().messages),
     text: ({ content, done, delta }) => {
       if (!textStream) {
         textStream = createStreamableValue('')
@@ -165,7 +160,7 @@ async function submitUserMessage(content: string) {
     tools: {
       listStocks: {
         description: 'List three imaginary stocks that are trending.',
-        parameters: z.object({
+        inputSchema: z.object({
           stocks: z.array(
             z.object({
               symbol: z.string().describe('The symbol of the stock'),
@@ -226,7 +221,7 @@ async function submitUserMessage(content: string) {
       showStockPrice: {
         description:
           'Get the current stock price of a given stock or currency. Use this to show the price to the user.',
-        parameters: z.object({
+        inputSchema: z.object({
           symbol: z
             .string()
             .describe(
@@ -287,7 +282,7 @@ async function submitUserMessage(content: string) {
       showStockPurchase: {
         description:
           'Show price and the UI to purchase a stock or currency. Use this if the user wants to purchase a stock or currency.',
-        parameters: z.object({
+        inputSchema: z.object({
           symbol: z
             .string()
             .describe(
@@ -400,7 +395,7 @@ async function submitUserMessage(content: string) {
       getEvents: {
         description:
           'List funny imaginary events between user highlighted dates that describe stock activity.',
-        parameters: z.object({
+        inputSchema: z.object({
           events: z.array(
             z.object({
               date: z
@@ -467,6 +462,41 @@ async function submitUserMessage(content: string) {
     id: nanoid(),
     display: result.value
   }
+}
+
+function toModelMessages(messages: Message[]): ModelMessage[] {
+  return messages.map(message => {
+    switch (message.role) {
+      case 'system':
+        return { role: 'system', content: message.content }
+      case 'user':
+        return { role: 'user', content: message.content }
+      case 'assistant':
+        return typeof message.content === 'string'
+          ? { role: 'assistant', content: message.content }
+          : {
+              role: 'assistant',
+              content: message.content.map(
+                ({ toolCallId, toolName, args }) => ({
+                  type: 'tool-call' as const,
+                  toolCallId,
+                  toolName,
+                  input: args
+                })
+              )
+            }
+      case 'tool':
+        return {
+          role: 'tool',
+          content: message.content.map(({ toolCallId, toolName, result }) => ({
+            type: 'tool-result' as const,
+            toolCallId,
+            toolName,
+            output: { type: 'json' as const, value: result as JSONValue }
+          }))
+        }
+    }
+  })
 }
 
 export type AIState = {
