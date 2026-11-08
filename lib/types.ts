@@ -1,8 +1,26 @@
-import { CoreMessage } from 'ai'
-
-export type Message = CoreMessage & {
-  id: string
+// Chat history as stored in KV. Tool parts keep the `args`/`result` fields the
+// app has always saved; lib/chat/actions.tsx maps them to the AI SDK message
+// shape (`input`/`output`) when the history is sent to the model.
+export type ToolCallPart = {
+  type: 'tool-call'
+  toolCallId: string
+  toolName: string
+  args: unknown
 }
+
+export type ToolResultPart = {
+  type: 'tool-result'
+  toolCallId: string
+  toolName: string
+  result: unknown
+}
+
+export type Message = { id: string } & (
+  | { role: 'system'; content: string }
+  | { role: 'user'; content: string }
+  | { role: 'assistant'; content: string | ToolCallPart[] }
+  | { role: 'tool'; content: ToolResultPart[] }
+)
 
 export interface Chat extends Record<string, any> {
   id: string
